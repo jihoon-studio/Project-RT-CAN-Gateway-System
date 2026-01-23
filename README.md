@@ -153,55 +153,40 @@ DB에 스냅샷 형태로 저장한 결과입니다.
 ## 트러블슈팅
 
 ### 1) Ethernet Task 스택 오버플로우 문제
-
-- **문제**  
-  Ethernet 통신 Task 실행 중 시스템 불안정 및 HardFault 발생
-
+- **문제**: Ethernet 통신 Task 실행 중 시스템 불안정 및 HardFault 발생
 - **원인**  
   - Ethernet Task에 할당된 스택 크기(2048 words)가 MCU의 가용 메모리 한계를 초과  
   - LwIP 초기화 및 네트워크 버퍼 사용으로 스택 사용량 급증
-
 - **해결**  
   - FreeRTOS Stack High Water Mark를 통해 태스크별 실제 스택 사용량 분석  
   - Ethernet Task 스택 크기를 1024 words로 최적화  
   - 불필요한 지역 변수 제거 및 네트워크 버퍼를 전역/동적 영역으로 분리
-
 - **결과**  
   - 장시간 동작 시에도 안정적인 Ethernet 통신 확보
 
 ### 2) FreeRTOS–HAL SysTick 자원 충돌로 인한 데드락
-
-- **문제**  
-  RTOS 구동 후 Ethernet(LwIP) 초기화 과정에서 시스템이 멈추며 태스크 전환이 발생하지 않음
-
+- **문제**: RTOS 구동 후 Ethernet(LwIP) 초기화 과정에서 시스템이 멈추며 태스크 전환이 발생하지 않음
 - **원인**  
   - FreeRTOS와 STM32 HAL이 동일한 SysTick 타이머를 시간 기준으로 공유  
   - RTOS 스케줄링과 HAL/LwIP 초기화 로직이 동시에 SysTick을 사용하며 자원 충돌 발생  
   - 특정 모듈 문제가 아닌 RTOS–HAL 전반의 타이밍 자원 충돌
-
 - **해결**  
   - HAL 타임베이스를 SysTick에서 하드웨어 타이머(TIM6) 기반으로 변경  
   - RTOS 스케줄러와 HAL 시간 관리 로직을 물리적으로 분리  
   - FreeRTOS tick과 HAL delay 함수 간 간섭 제거
-
 - **결과**  
   - 데드락 문제 해결  
   - CAN 및 Ethernet Task 병행 실행 시에도 RTOS 정상 동작
-
+    
 ### 3) CAN 수신 지연으로 인한 메시지 누락 문제
-
-- **문제**  
-  다수 노드에서 CAN 메시지를 송신할 경우 일부 메시지가 수신되지 않음
-
+- **문제**: 다수 노드에서 CAN 메시지를 송신할 경우 일부 메시지가 수신되지 않음
 - **원인**  
   - CAN 수신을 polling 방식으로 처리하여 수신 처리 지연 발생  
   - FIFO 적재 속도를 Task가 따라가지 못해 메시지 손실 발생
-
 - **해결**  
   - CAN 수신을 Interrupt 기반 구조로 전환  
   - 수신 인터럽트 발생 시 Event/Semaphore로 전용 처리 Task를 즉시 활성화  
   - 메시지 처리와 통신 로직을 분리하여 수신 지연 최소화
-
 - **결과**  
   - CAN 메시지 누락 현상 제거  
   - 다중 노드 환경에서도 안정적인 데이터 수신 확보
